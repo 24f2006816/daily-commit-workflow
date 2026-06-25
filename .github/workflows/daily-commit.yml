@@ -5,23 +5,53 @@ on:
     - cron: '15 4 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   commit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}  # ✅ allows push access
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit step - 24f2006816@ds.study.iitm.ac.in
+      - name: Append daily log entry
         run: |
+          set -euo pipefail
           echo "TDSFU Daily run: $(date -u) TDSFU" >> daily-log.txt
+          if [ ! -s daily-log.txt ]; then
+            echo "::error::Failed to write to daily-log.txt"
+            exit 1
+          fi
 
       - name: Git Commit and Push
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add daily-log.txt
-          git commit -m "Auto commit at $(date -u)" || echo "No changes to commit"
-          git push
+
+          if git diff --cached --quiet; then
+            echo "::warning::No changes detected in daily-log.txt"
+            exit 0
+          fi
+
+          git commit -m "Auto commit at $(date -u)"
+
+          max_retries=3
+          for i in $(seq 1 "$max_retries"); do
+            if git push; then
+              echo "Push succeeded on attempt $i"
+              exit 0
+            fi
+            echo "::warning::Push failed on attempt $i of $max_retries"
+            if [ "$i" -lt "$max_retries" ]; then
+              sleep 5
+              git pull --rebase
+            fi
+          done
+
+          echo "::error::Push failed after $max_retries attempts"
+          exit 1
