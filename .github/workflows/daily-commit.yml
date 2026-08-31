@@ -5,16 +5,19 @@ on:
     - cron: '15 4 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   commit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}  # ✅ allows push access
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit step - 24f2006816@ds.study.iitm.ac.in
+      - name: Append daily log entry
         run: |
           echo "TDSFU Daily run: $(date -u) TDSFU" >> daily-log.txt
 
